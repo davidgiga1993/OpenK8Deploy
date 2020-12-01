@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import os
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from config.ConfigMap import ConfigMap
 from config.DeploymentActionConfig import DeploymentActionConfig
 from config.YmlConfig import YmlConfig
 from oc.Oc import Oc
+from utils.DictUtils import DictUtils
 
 
 class RootConfig(YmlConfig):
@@ -36,7 +37,6 @@ class RootConfig(YmlConfig):
 
         project = self.get_project()
         oc = Oc()
-        oc.project(project)
         self._oc = oc
         return oc
 
@@ -118,12 +118,12 @@ class AppConfig(YmlConfig):
         """
         return [DeploymentActionConfig(self, x) for x in self.data.get('on-config-change', [])]
 
-    def get_dc_name(self) -> str:
+    def get_dc_name(self) -> Optional[str]:
         """
         Returns the configured name of the deployment config
         :return: Name
         """
-        return self.data['dc']['name']
+        return DictUtils.get(self.data, 'dc.name')
 
     def get_replacements(self) -> Dict[str, str]:
         """
@@ -131,7 +131,9 @@ class AppConfig(YmlConfig):
         :return: Key, value map
         """
         items = self.data.get('vars', {})
-        items.update({
-            'DC_NAME': self.get_dc_name()
-        })
+        dc_name = self.get_dc_name()
+        if dc_name is not None:
+            items.update({
+                'DC_NAME': dc_name
+            })
         return items

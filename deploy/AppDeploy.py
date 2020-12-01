@@ -75,11 +75,10 @@ class DeploymentBundle:
     Holds all objects of a single deployment
     """
 
-    def __init__(self, template_processor: YmlTemplateProcessor):
+    def __init__(self):
         self.objects = []  # All objects which should be deployed
-        self._template_processor = template_processor
 
-    def add_object(self, data: dict):
+    def add_object(self, data: dict, template_processor: YmlTemplateProcessor):
         """
         Adds a new object which should be deployed
         :param data: Object
@@ -93,7 +92,7 @@ class DeploymentBundle:
             return
 
         # Pre-process any variables
-        self._template_processor.process(data)
+        template_processor.process(data)
 
         merger = OcObjectMerge()
         # Check if the new data can be merged into any existing objects
@@ -135,7 +134,7 @@ class AppDeployRunner:
     def __init__(self, root_config: RootConfig, app_config: AppConfig):
         self._root_config = root_config
         self._app_config = app_config
-        self._bundle = DeploymentBundle(YmlTemplateProcessor(root_config, app_config))
+        self._bundle = DeploymentBundle()
         self._write_file = None  # type: Optional[str]
 
     def write_file(self, path: str):
@@ -150,21 +149,23 @@ class AppDeployRunner:
         if self._app_config.is_template():
             raise ValueError('App is a template and can\'t be deployed')
 
-        oc = self._root_config.create_oc()
-        self._deploy_templates(self._app_config.get_pre_template_refs())
-        self._load_files(self._app_config.get_config_root())
-        self._deploy_extra_configmaps()
-        self._deploy_templates(self._app_config.get_post_template_refs())
+        root_template_processor = YmlTemplateProcessor(self._app_config)
+        self._deploy_templates(self._app_config.get_pre_template_refs(), root_template_processor)
+        self._load_files(self._app_config.get_config_root(), root_template_processor)
+        self._deploy_extra_configmaps(root_template_processor)
+        self._deploy_templates(self._app_config.get_post_template_refs(), root_template_processor)
 
+        oc = self._root_config.create_oc()
         deploy_runner = DeployRunner(self._root_config, oc, self._app_config)
         if self._write_file is not None:
             self._bundle.dump_objects(self._write_file)
             return
 
+        oc.project(self._root_config.get_project())
         print('Deploying ' + self._app_config.get_dc_name())
         self._bundle.deploy(deploy_runner)
 
-    def _deploy_templates(self, template_names: List[str]):
+    def _deploy_templates(self, template_names: List[str], template_processor: YmlTemplateProcessor):
         """
         Deploys all yml files in the referenced template
         """
@@ -172,18 +173,22 @@ class AppDeployRunner:
             print('Applying template: ' + template_name)
             template = self._root_config.load_app_config(template_name)
             if not template.is_template():
-                raise ValueError('Referenced template is not declared as template')
+                raise ValueError('Referenced app ' + template_name + ' is not declared as template')
             if not template.enabled():
-                print('Warning: Template is disabled, skipping')
+                print('Warning: Template ' + template_name + ' is disabled, skipping')
                 return
+
+            child_template_processor = YmlTemplateProcessor(template)
+            # Inherit all vars from the previous template processor
+            child_template_processor.inherit(template_processor)
 
             # The template might reference other templates
             # -> Recursively deploy them
-            self._deploy_templates(template.get_pre_template_refs())
-            self._load_files(template.get_config_root())
-            self._deploy_templates(template.get_post_template_refs())
+            self._deploy_templates(template.get_pre_template_refs(), child_template_processor)
+            self._load_files(template.get_config_root(), child_template_processor)
+            self._deploy_templates(template.get_post_template_refs(), child_template_processor)
 
-    def _load_files(self, root: str):
+    def _load_files(self, root: str, template_processor: YmlTemplateProcessor):
         """
         Loads all yml files inside the given folder
         :param root: Path to the root of the configs folder
@@ -199,10 +204,9 @@ class AppDeployRunner:
                     if doc is None:
                         # Empty block
                         continue
-                    self._bundle.add_object(doc)
-            # deploy_runner.deploy_file(path)
+                    self._bundle.add_object(doc, template_processor)
 
-    def _deploy_extra_configmaps(self):
+    def _deploy_extra_configmaps(self, template_processor: YmlTemplateProcessor):
         for config in self._app_config.get_config_maps():
             oc_obj = config.build_oc_obj(self._app_config.get_config_root())
-            self._bundle.add_object(oc_obj)
+            self._bundle.add_object(oc_obj, template_processor)

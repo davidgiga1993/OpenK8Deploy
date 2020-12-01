@@ -1,4 +1,8 @@
-from config.Config import AppConfig, RootConfig
+from __future__ import annotations
+
+from typing import Optional, Dict
+
+from config.Config import AppConfig
 
 
 class YmlTemplateProcessor:
@@ -6,9 +10,9 @@ class YmlTemplateProcessor:
     Processes yml files by replacing any string placeholders
     """
 
-    def __init__(self, root_config: RootConfig, app_config: AppConfig):
-        self._root_config = root_config  # type: RootConfig
+    def __init__(self, app_config: AppConfig):
         self._app_config = app_config  # type: AppConfig
+        self._parent = None  # type: Optional[YmlTemplateProcessor]
 
     def process(self, data: dict):
         """
@@ -16,8 +20,18 @@ class YmlTemplateProcessor:
 
         :param data: Data of the app, the data will be modified in place
         """
-        replacements = self._app_config.get_replacements()
+        replacements = self.get_replacements()
         self._walk_dict(replacements, data)
+
+    def get_replacements(self) -> Dict[str, str]:
+        """
+        Returns all replacements handled by this processor, including all parent variables
+        :return: Replacements
+        """
+        replacements = self._app_config.get_replacements()
+        if self._parent is not None:
+            replacements.update(self._parent.get_replacements())
+        return replacements
 
     def _walk_dict(self, replacements, data: dict):
         for key, obj in data.items():
@@ -41,3 +55,12 @@ class YmlTemplateProcessor:
         for variable, value in replacements.items():
             item = item.replace('${' + variable + '}', value)
         return item
+
+    def inherit(self, template_processor: YmlTemplateProcessor):
+        """
+        Inherits all replacements from the given processor.
+        If the same value is defined the definition of the given processor will override
+        the existing definition
+        :param template_processor: Parent processor
+        """
+        self._parent = template_processor
