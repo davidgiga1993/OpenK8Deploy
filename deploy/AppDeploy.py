@@ -82,8 +82,12 @@ class DeploymentBundle:
         """
         Adds a new object which should be deployed
         :param data: Object
+        :param template_processor: Template processor which should be used
         """
-        item_kind = data['kind'].lower()
+        item_kind = data.get('kind', '').lower()
+        if item_kind == '':
+            print('Unknown object kind: ' + str(data))
+            return
         if item_kind == 'Secret'.lower():
             print('Secrets are ignored')
             return
