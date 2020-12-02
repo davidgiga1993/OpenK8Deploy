@@ -40,12 +40,14 @@ class YmlTemplateProcessor:
         while depth < 10 and found_var:  # Lazily assume there are only 10 levels of chained reference
             found_var = False
             for key, value in replacements.items():
+                if not isinstance(value, str):
+                    continue
                 for variable_name in self.VAR_PATTERN.findall(value):
                     new_value = replacements.get(variable_name)
                     if new_value is None:
                         print('Warn: Missing referenced variable: ' + variable_name)
                         continue
-                    replacements[key] = value.replace('${' + variable_name + '}', new_value)
+                    replacements[key] = value.replace('${' + variable_name + '}', str(new_value))
                     found_var = True
 
         self._walk_dict(replacements, data)
@@ -70,7 +72,7 @@ class YmlTemplateProcessor:
         """
         params = set()
         if self._parent is not None:
-            params = self._parent._get_params()
+            params.update(self._parent._get_params())
         params.update(self._config.get_params())
         if self._child is not None:
             params.update(self._child._get_params())
@@ -83,7 +85,7 @@ class YmlTemplateProcessor:
         """
         replacements = {}
         if self._parent is not None:
-            replacements = self._parent._get_replacements()
+            replacements.update(self._parent._get_replacements())
         replacements.update(self._config.get_replacements())
         if self._child is not None:
             replacements.update(self._child._get_replacements())

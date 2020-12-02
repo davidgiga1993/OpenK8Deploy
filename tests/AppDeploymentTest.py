@@ -27,6 +27,19 @@ class AppDeploymentTest(TestCase):
             data = yaml.load(f, Loader=yaml.FullLoader)
         self.assertEqual('paramValue', data['metadata']['name'])
 
+    def test_var_loader(self):
+        prj_config = ProjectConfig.load(os.path.join(self._base_path, 'lib-usage'))
+        app_config = prj_config.load_app_config('var-loader-app')
+        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
+        runner.deploy()
+        with open(self._tmp_file) as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+        expected = '''-----BEGIN PRIVATE KEY-----
+KEY STUFF
+-----END PRIVATE KEY-----
+'''
+        self.assertEqual(expected, data['KEY'])
+
     def test_for_each(self):
         prj_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
         app_config = prj_config.load_app_config('app-for-each')

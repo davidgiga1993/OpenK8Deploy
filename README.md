@@ -123,7 +123,20 @@ This will create a new configmap from the file `nginx.conf` with the name `nginx
 Any changes made to the file will be automatically deployed.
 
 ### Variables
-You can refer to variables in yml files by using `${VAR-NAME}`
+You can refer to variables in yml files by using `${VAR-NAME}`.
+Variables can also be loaded from files.
+```yml
+vars:
+  # Regular key/value assignment
+  key: value
+  
+  # This will load the public/private and intermediate certs
+  # from a pem file and store it in *_KEY, *_PUBLIC, *_CACERT
+  # where * is the key of the value (CERT in this example)
+  CERT:
+    loader: pem
+    file: my-cert.pem
+```
 
 ### Global variables
 The following variables are available anywhere inside the yml files by default
