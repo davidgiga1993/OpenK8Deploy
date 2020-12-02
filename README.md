@@ -52,8 +52,12 @@ configs
 Here is a sample `_root.yml` file
 ```yml
 project: 'my-oc-project'
+
+# OPTIONAL STUFF
+# Global variables
+vars:
+  DOMAIN: "dev-core.org"
 ```
-Any deployments made will happen in this project.
 
 ### App config
 An app is represented by a folder containing an `_index.yml` file and any additional openshift yml files.
@@ -245,6 +249,33 @@ forEach:
   - DC_NAME: favorite-api
     PORT: 8081
 ```
+
+#### Library
+It's possible to define whole project as a `library`. This allows all apps and templates to be reused
+by another project. An example would be the same setup for multiple systems which are separated by projects (e.g. `dev/test/prod`).
+
+```yml
+# testLib/_root.yml
+type: library
+
+# Required parameters
+params:
+  - domain
+  - dockerDomain
+  - imageStreamTag
+```
+```yml
+# prod/_root.yml
+project: 'prod-project'
+inherit: testLib
+
+# Required parameters
+vars:
+  domain: my-prod.dev-core.org
+  dockerDomain: prod-docker.com
+  imageStreamTag: prod
+```
+When you now deploy the `prod` project it will inherit all apps inside `testLib`.
 
 ## Change tracking
 Changes are detected by storing a md5 sum in the label of the object.

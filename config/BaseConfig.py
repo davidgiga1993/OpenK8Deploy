@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 
 from config.YmlConfig import YmlConfig
+from processing.YmlTemplateProcessor import YmlTemplateProcessor
 
 
 class BaseConfig(YmlConfig):
@@ -12,6 +13,9 @@ class BaseConfig(YmlConfig):
         """
         if external_vars is not None:
             self._external_vars = external_vars
+
+    def get_template_processor(self) -> YmlTemplateProcessor:
+        return YmlTemplateProcessor(self)
 
     def get_replacements(self) -> Dict[str, str]:
         """

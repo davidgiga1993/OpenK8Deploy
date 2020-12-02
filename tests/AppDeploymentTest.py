@@ -18,10 +18,19 @@ class AppDeploymentTest(TestCase):
         if os.path.isfile(self._tmp_file):
             os.remove(self._tmp_file)
 
+    def test_library(self):
+        prj_config = ProjectConfig.load(os.path.join(self._base_path, 'lib-usage'))
+        app_config = prj_config.load_app_config('some-app')
+        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
+        runner.deploy()
+        with open(self._tmp_file) as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+        self.assertEqual('paramValue', data['metadata']['name'])
+
     def test_for_each(self):
-        root_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
-        app_config = root_config.load_app_config('app-for-each')
-        runner = AppDeployment(root_config, app_config, dry_run=self._tmp_file)
+        prj_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
+        app_config = prj_config.load_app_config('app-for-each')
+        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
         runner.deploy()
 
         docs = []
@@ -34,9 +43,9 @@ class AppDeploymentTest(TestCase):
         self.assertEqual(2, len(docs))
 
     def test_params(self):
-        root_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
-        app_config = root_config.load_app_config('app-params')
-        runner = AppDeployment(root_config, app_config, dry_run=self._tmp_file)
+        prj_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
+        app_config = prj_config.load_app_config('app-params')
+        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
         try:
             runner.deploy()
             self.fail('No exception raised for missing param')
@@ -54,9 +63,9 @@ class AppDeploymentTest(TestCase):
         self.assertEqual('input', data['someObj']['param'])
 
     def test_inherit_vars(self):
-        root_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
-        app_config = root_config.load_app_config('app')
-        runner = AppDeployment(root_config, app_config, dry_run=self._tmp_file)
+        prj_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
+        app_config = prj_config.load_app_config('app')
+        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
         runner.deploy()
 
         with open(self._tmp_file) as f:

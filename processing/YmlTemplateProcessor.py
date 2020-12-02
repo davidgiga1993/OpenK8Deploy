@@ -2,26 +2,29 @@ from __future__ import annotations
 
 import re
 from typing import Optional, Dict, List, Set
+from typing import TYPE_CHECKING
 
-from config.Config import AppConfig
+if TYPE_CHECKING:
+    from config.BaseConfig import BaseConfig
 from utils.Errors import MissingParam
 
 
 class YmlTemplateProcessor:
     """
-    Processes yml files by replacing any string placeholders
+    Processes yml files by replacing any string placeholders.
     """
 
     VAR_PATTERN = re.compile(r'\${(.+)}')
 
-    def __init__(self, app_config: AppConfig):
+    def __init__(self, config: BaseConfig):
         self._missing_vars = []  # type: List[str]
         """
         List of all variables which have not been replace because
         there was no value defined for them
         """
-        self._app_config = app_config  # type: AppConfig
+        self._config = config  # type: BaseConfig
         self._parent = None  # type: Optional[YmlTemplateProcessor]
+        self._child = None  # type: Optional[YmlTemplateProcessor]
 
     def process(self, data: dict):
         """
@@ -49,9 +52,12 @@ class YmlTemplateProcessor:
         Returns all defined params
         :return: Param names
         """
-        params = set(self._app_config.get_params())
+        params = set()
         if self._parent is not None:
-            params.update(self._parent._get_params())
+            params = self._parent._get_params()
+        params.update(self._config.get_params())
+        if self._child is not None:
+            params.update(self._child._get_params())
         return params
 
     def _get_replacements(self) -> Dict[str, str]:
@@ -59,9 +65,12 @@ class YmlTemplateProcessor:
         Returns all replacements handled by this processor, including all parent variables
         :return: Replacements
         """
-        replacements = self._app_config.get_replacements()
+        replacements = {}
         if self._parent is not None:
-            replacements.update(self._parent._get_replacements())
+            replacements = self._parent._get_replacements()
+        replacements.update(self._config.get_replacements())
+        if self._child is not None:
+            replacements.update(self._child._get_replacements())
         return replacements
 
     def _walk_dict(self, replacements: Dict[str, str], data: dict):
@@ -96,11 +105,26 @@ class YmlTemplateProcessor:
             self._missing_vars.append(missing)
         return item
 
-    def inherit(self, template_processor: YmlTemplateProcessor):
+    def parent(self, template_processor: YmlTemplateProcessor):
         """
         Inherits all replacements from the given processor.
-        If the same value is defined the definition of the given processor will override
-        the existing definition
-        :param template_processor: Parent processor
+        If the same value is defined in this and the parent, the definition of the this processor will override
+        the parent definition
+
+        :param template_processor: Child processor
         """
+        if self._parent is not None:
+            raise ValueError('Parent processor already defined')
         self._parent = template_processor
+
+    def child(self, template_processor: YmlTemplateProcessor):
+        """
+        Inherits all replacements from the given processor.
+        If the same value is defined in this and the child, the definition of the child processor will override
+        this definition
+
+        :param template_processor: Child processor
+        """
+        if self._child is not None:
+            raise ValueError('Child processor already defined')
+        self._child = template_processor

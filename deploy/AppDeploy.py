@@ -149,18 +149,20 @@ class AppDeployRunner:
         if self._app_config.is_template():
             raise ValueError('App is a template and can\'t be deployed')
 
-        root_template_processor = YmlTemplateProcessor(self._app_config)
-        self._deploy_templates(self._app_config.get_pre_template_refs(), root_template_processor)
-        self._load_files(self._app_config.get_config_root(), root_template_processor)
-        self._deploy_extra_configmaps(root_template_processor)
-        self._deploy_templates(self._app_config.get_post_template_refs(), root_template_processor)
+        template_processor = self._app_config.get_template_processor()
+        template_processor.parent(self._root_config.get_template_processor())
+
+        self._deploy_templates(self._app_config.get_pre_template_refs(), template_processor)
+        self._load_files(self._app_config.get_config_root(), template_processor)
+        self._deploy_extra_configmaps(template_processor)
+        self._deploy_templates(self._app_config.get_post_template_refs(), template_processor)
 
         oc = self._root_config.create_oc()
         if self._dry_run is not None:
             self._bundle.dump_objects(self._dry_run)
             return
 
-        oc.project(self._root_config.get_project())
+        oc.project(self._root_config.get_oc_project_name())
         print('Deploying ' + self._app_config.get_dc_name())
         object_deployer = OcObjectDeployer(self._root_config, oc, self._app_config)
         self._bundle.deploy(object_deployer)
@@ -180,7 +182,9 @@ class AppDeployRunner:
 
             child_template_processor = YmlTemplateProcessor(template)
             # Inherit all vars from the previous template processor
-            child_template_processor.inherit(template_processor)
+            # The child processor is a parent from a config perspective
+            # since its configuration will be overwritten by the previous template
+            child_template_processor.child(template_processor)
 
             # The template might reference other templates
             # -> Recursively deploy them

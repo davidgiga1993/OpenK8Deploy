@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 from config.AppConfig import AppConfig
 from config.BaseConfig import BaseConfig
 from oc.Oc import Oc
+from processing.YmlTemplateProcessor import YmlTemplateProcessor
+from utils.Errors import ConfigError
 
 
 class ProjectConfig(BaseConfig):
@@ -16,6 +19,18 @@ class ProjectConfig(BaseConfig):
         super().__init__(path)
         self._config_root = config_root
         self._oc = None
+        self._library = None  # type: Optional[ProjectConfig]
+
+        inherit = self.data.get('inherit')
+        if inherit is not None:
+            # Use a library
+            parent_dir = os.path.abspath(os.path.join(path, os.pardir, os.pardir))
+            lib_dir = os.path.join(parent_dir, inherit)
+            if not os.path.isdir(lib_dir):
+                raise FileNotFoundError('Library not found: ' + lib_dir)
+            self._library = ProjectConfig.load(lib_dir)
+            if not self._library.is_library():
+                raise ConfigError('Project ' + inherit + ' referenced as library but is not a library')
 
     @classmethod
     def load(cls, path: str) -> ProjectConfig:
@@ -32,7 +47,7 @@ class ProjectConfig(BaseConfig):
 
     def create_oc(self) -> Oc:
         """
-        Creates a new openshift client, preconfigured for this project
+        Creates a new openshift client
         :return: Client
         """
         if self._oc is not None:
@@ -42,16 +57,25 @@ class ProjectConfig(BaseConfig):
         self._oc = oc
         return oc
 
-    def get_project(self) -> str:
+    def get_oc_project_name(self) -> str:
         """
         Returns the name of the openshift project
         :return:
         """
         return self.data['project']
 
+    def get_template_processor(self) -> YmlTemplateProcessor:
+        root_processor = super().get_template_processor()
+        if self._library is not None:
+            processor = self._library.get_template_processor()
+            root_processor.parent(processor)
+        return root_processor
+
     def load_app_config(self, name: str) -> AppConfig:
         folder_path = os.path.join(self._config_root, name)
         if not os.path.isdir(folder_path):
+            if self._library is not None:
+                return self._library.load_app_config(name)
             raise FileNotFoundError('App folder not found: ' + folder_path)
 
         index_file = os.path.join(folder_path, '_index.yml')
