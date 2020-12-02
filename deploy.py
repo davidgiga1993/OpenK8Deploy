@@ -70,12 +70,13 @@ def main():
 
     deploy_parser = subparsers.add_parser('deploy', help='Deploys the configuration of an application')
     deploy_parser.add_argument('--dry-run', dest='dry_run',
-                               help='Writes the final objects into a yml file instead of deployin them')
+                               help='Writes all objects into a yml file instead of deploying them. '
+                                    'This does not communicate with openshift in any way')
     deploy_parser.add_argument('name', help='Name of the app which should be deployed (folder name)', nargs=1)
     deploy_parser.set_defaults(func=deploy_app)
 
     deploy_all_parser = subparsers.add_parser('deploy-all',
-                                              help='Deploys all configurations of all defined application')
+                                              help='Deploys all objects of all enabled application')
     deploy_all_parser.set_defaults(func=deploy_all)
 
     args = parser.parse_args()
