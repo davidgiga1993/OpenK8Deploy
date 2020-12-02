@@ -3,27 +3,32 @@ from __future__ import annotations
 import os
 
 from config.AppConfig import AppConfig
-from config.YmlConfig import YmlConfig
+from config.BaseConfig import BaseConfig
 from oc.Oc import Oc
 
 
-class RootConfig(YmlConfig):
+class ProjectConfig(BaseConfig):
     """
-    Global configuration for all deployments
+    Project configuration
     """
 
     def __init__(self, config_root: str, path: str):
         super().__init__(path)
         self._config_root = config_root
         self._oc = None
-        self._external_vars = {}
 
     @classmethod
-    def load(cls, path: str) -> RootConfig:
-        return RootConfig(path, os.path.join(path, '_root.yml'))
+    def load(cls, path: str) -> ProjectConfig:
+        return ProjectConfig(path, os.path.join(path, '_root.yml'))
 
     def get_config_root(self) -> str:
         return self._config_root
+
+    def is_library(self) -> bool:
+        """
+        Indicates if this collection is a library
+        """
+        return self.data.get('type', '') == 'library'
 
     def create_oc(self) -> Oc:
         """
@@ -53,4 +58,6 @@ class RootConfig(YmlConfig):
         if not os.path.isfile(index_file):
             # Index file missing
             raise FileNotFoundError('No index yml file found: ' + index_file)
-        return AppConfig(folder_path, index_file, self._external_vars)
+
+        variables = self.get_replacements()
+        return AppConfig(folder_path, index_file, variables)

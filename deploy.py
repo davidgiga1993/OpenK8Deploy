@@ -3,12 +3,12 @@ from __future__ import annotations
 import argparse
 import os
 
-from config.Config import RootConfig
+from config.Config import ProjectConfig
 from deploy.AppDeploy import AppDeployRunner, AppDeployment
 
 
 def reload_config(args):
-    root_config = RootConfig.load(args.config_dir)
+    root_config = ProjectConfig.load(args.config_dir)
     app_config = root_config.load_app_config(args.name[0])
     if not app_config.enabled():
         print('App is disabled')
@@ -26,7 +26,7 @@ def reload_config(args):
 
 
 def deploy_app(args):
-    root_config = RootConfig.load(args.config_dir)
+    root_config = ProjectConfig.load(args.config_dir)
     app_config = root_config.load_app_config(args.name[0])
 
     deployment = AppDeployment(root_config, app_config, dry_run=args.dry_run)
@@ -36,7 +36,7 @@ def deploy_app(args):
 
 def deploy_all(args):
     base_dir = args.config_dir
-    root_config = RootConfig.load(args.config_dir)
+    root_config = ProjectConfig.load(args.config_dir)
     for dir_item in os.listdir(base_dir):
         path = os.path.join(base_dir, dir_item)
         if not os.path.isdir(path):

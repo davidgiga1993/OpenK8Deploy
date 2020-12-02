@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import yaml
 
-from config.Config import RootConfig
+from config.Config import ProjectConfig
 from deploy.AppDeploy import AppDeployment
 from utils.Errors import MissingParam
 
@@ -19,7 +19,7 @@ class AppDeploymentTest(TestCase):
             os.remove(self._tmp_file)
 
     def test_for_each(self):
-        root_config = RootConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
+        root_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
         app_config = root_config.load_app_config('app-for-each')
         runner = AppDeployment(root_config, app_config, dry_run=self._tmp_file)
         runner.deploy()
@@ -34,7 +34,7 @@ class AppDeploymentTest(TestCase):
         self.assertEqual(2, len(docs))
 
     def test_params(self):
-        root_config = RootConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
+        root_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
         app_config = root_config.load_app_config('app-params')
         runner = AppDeployment(root_config, app_config, dry_run=self._tmp_file)
         try:
@@ -54,7 +54,7 @@ class AppDeploymentTest(TestCase):
         self.assertEqual('input', data['someObj']['param'])
 
     def test_inherit_vars(self):
-        root_config = RootConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
+        root_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
         app_config = root_config.load_app_config('app')
         runner = AppDeployment(root_config, app_config, dry_run=self._tmp_file)
         runner.deploy()
@@ -64,3 +64,4 @@ class AppDeploymentTest(TestCase):
         self.assertEqual('ABC', data['metadata']['name'])
         self.assertEqual('DEF', data['metadata']['name2'])
         self.assertEqual('3', data['metadata']['base'])
+        self.assertEqual('global', data['metadata']['GLOBAL_TEST'])

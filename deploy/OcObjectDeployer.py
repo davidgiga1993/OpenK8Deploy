@@ -2,7 +2,7 @@ import hashlib
 
 import yaml
 
-from config.Config import RootConfig, AppConfig
+from config.Config import ProjectConfig, AppConfig
 from oc.Oc import Oc
 
 
@@ -13,8 +13,8 @@ class OcObjectDeployer:
 
     HASH_ANNOTATION = 'yml-hash'
 
-    def __init__(self, root_config: RootConfig, oc: Oc, app_config: AppConfig):
-        self._root_config = root_config  # type: RootConfig
+    def __init__(self, root_config: ProjectConfig, oc: Oc, app_config: AppConfig):
+        self._root_config = root_config  # type: ProjectConfig
         self._app_config = app_config  # type: AppConfig
         self._oc = oc  # type: Oc
 

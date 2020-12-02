@@ -5,7 +5,7 @@ from typing import Optional, List
 
 import yaml
 
-from config.Config import RootConfig, AppConfig
+from config.Config import ProjectConfig, AppConfig
 from deploy.OcObjectDeployer import OcObjectDeployer
 from processing.OcObjectMerge import OcObjectMerge
 from processing.YmlTemplateProcessor import YmlTemplateProcessor
@@ -89,7 +89,7 @@ class AppDeployment:
     Deploys a single application
     """
 
-    def __init__(self, root_config: RootConfig, app_config: AppConfig, dry_run: Optional[str]):
+    def __init__(self, root_config: ProjectConfig, app_config: AppConfig, dry_run: Optional[str] = None):
         self._root_config = root_config
         self._app_config = app_config
         self._dry_run = dry_run
@@ -113,7 +113,7 @@ class AppDeployRunnerFactory:
     Creates AppDeployRunner objects
     """
 
-    def __init__(self, root_config: RootConfig, dry_run: Optional[str]):
+    def __init__(self, root_config: ProjectConfig, dry_run: Optional[str]):
         self._root_config = root_config
         self._dry_run = dry_run  # type: Optional[str]
 
@@ -134,7 +134,7 @@ class AppDeployRunner:
     Executes the deployment of a single app
     """
 
-    def __init__(self, root_config: RootConfig, app_config: AppConfig, dry_run: Optional[str] = None):
+    def __init__(self, root_config: ProjectConfig, app_config: AppConfig, dry_run: Optional[str] = None):
         self._root_config = root_config
         self._app_config = app_config
         self._bundle = DeploymentBundle()
