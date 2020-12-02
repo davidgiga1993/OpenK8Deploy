@@ -4,9 +4,9 @@ import os
 from typing import Optional, List
 
 import yaml
+from deploy.OcObjectDeployer import OcObjectDeployer
 
 from config.Config import ProjectConfig, AppConfig
-from deploy.OcObjectDeployer import OcObjectDeployer
 from processing.OcObjectMerge import OcObjectMerge
 from processing.YmlTemplateProcessor import YmlTemplateProcessor
 
@@ -89,20 +89,23 @@ class AppDeployment:
     Deploys a single application
     """
 
-    def __init__(self, root_config: ProjectConfig, app_config: AppConfig, dry_run: Optional[str] = None):
+    def __init__(self, root_config: ProjectConfig, app_config: AppConfig,
+                 out_file: Optional[str] = None,
+                 dry_run=False):
         self._root_config = root_config
         self._app_config = app_config
+        self._out_file = out_file
         self._dry_run = dry_run
 
     def deploy(self):
         """
         Deploys all instances of the app
         """
-        if self._dry_run is not None:
-            if os.path.isfile(self._dry_run):
-                os.remove(self._dry_run)
+        if self._out_file is not None:
+            if os.path.isfile(self._out_file):
+                os.remove(self._out_file)
 
-        factory = AppDeployRunnerFactory(self._root_config, self._dry_run)
+        factory = AppDeployRunnerFactory(self._root_config, out_file=self._out_file, dry_run=self._dry_run)
         runners = factory.create(self._app_config)
         for runner in runners:
             runner.deploy()
@@ -113,9 +116,10 @@ class AppDeployRunnerFactory:
     Creates AppDeployRunner objects
     """
 
-    def __init__(self, root_config: ProjectConfig, dry_run: Optional[str]):
+    def __init__(self, root_config: ProjectConfig, out_file: Optional[str] = None, dry_run=False):
         self._root_config = root_config
-        self._dry_run = dry_run  # type: Optional[str]
+        self._dry_run = dry_run
+        self._out_file = out_file
 
     def create(self, root_app_config: AppConfig) -> List[AppDeployRunner]:
         """
@@ -124,7 +128,7 @@ class AppDeployRunnerFactory:
         """
         runners = []
         for app_config in root_app_config.get_for_each():
-            runner = AppDeployRunner(self._root_config, app_config, dry_run=self._dry_run)
+            runner = AppDeployRunner(self._root_config, app_config, out_file=self._out_file, dry_run=self._dry_run)
             runners.append(runner)
         return runners
 
@@ -134,11 +138,13 @@ class AppDeployRunner:
     Executes the deployment of a single app
     """
 
-    def __init__(self, root_config: ProjectConfig, app_config: AppConfig, dry_run: Optional[str] = None):
+    def __init__(self, root_config: ProjectConfig, app_config: AppConfig, out_file: Optional[str] = None,
+                 dry_run=False):
         self._root_config = root_config
         self._app_config = app_config
         self._bundle = DeploymentBundle()
-        self._dry_run = dry_run  # type: Optional[str]
+        self._dry_run = dry_run
+        self._out_file = out_file
 
     def deploy(self):
         """
@@ -158,13 +164,12 @@ class AppDeployRunner:
         self._deploy_templates(self._app_config.get_post_template_refs(), template_processor)
 
         oc = self._root_config.create_oc()
-        if self._dry_run is not None:
-            self._bundle.dump_objects(self._dry_run)
-            return
+        if self._out_file is not None:
+            self._bundle.dump_objects(self._out_file)
 
         oc.project(self._root_config.get_oc_project_name())
-        print('Deploying ' + self._app_config.get_dc_name())
-        object_deployer = OcObjectDeployer(self._root_config, oc, self._app_config)
+        print('Checking ' + self._app_config.get_dc_name())
+        object_deployer = OcObjectDeployer(self._root_config, oc, self._app_config, dry_run=self._dry_run)
         self._bundle.deploy(object_deployer)
 
     def _deploy_templates(self, template_names: List[str], template_processor: YmlTemplateProcessor):
@@ -172,7 +177,6 @@ class AppDeployRunner:
         Deploys all referenced templates (recursively)
         """
         for template_name in template_names:
-            print('Applying template: ' + template_name)
             template = self._root_config.load_app_config(template_name)
             if not template.is_template():
                 raise ValueError('Referenced app ' + template_name + ' is not declared as template')

@@ -117,9 +117,14 @@ class YmlTemplateProcessor:
     def _replace(self, item: str, replacements):
         for variable, value in replacements.items():
             item = item.replace('${' + variable + '}', str(value))
+            if isinstance(value, int) and item == str(value):
+                # The source type was int and the item has been completely substituted
+                # -> Return int type
+                return int(value)
 
         # Search for any missing variables
-        self._missing_vars.extend(self.VAR_PATTERN.findall(item))
+        if isinstance(item, str):
+            self._missing_vars.extend(self.VAR_PATTERN.findall(item))
         return item
 
     def parent(self, template_processor: YmlTemplateProcessor):

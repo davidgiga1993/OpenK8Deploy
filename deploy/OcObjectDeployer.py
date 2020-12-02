@@ -13,10 +13,11 @@ class OcObjectDeployer:
 
     HASH_ANNOTATION = 'yml-hash'
 
-    def __init__(self, root_config: ProjectConfig, oc: Oc, app_config: AppConfig):
+    def __init__(self, root_config: ProjectConfig, oc: Oc, app_config: AppConfig, dry_run: bool = False):
         self._root_config = root_config  # type: ProjectConfig
         self._app_config = app_config  # type: AppConfig
         self._oc = oc  # type: Oc
+        self._dry_run = dry_run
 
     def deploy_object(self, data: dict):
         """
@@ -45,11 +46,14 @@ class OcObjectDeployer:
             return
 
         if current_hash == hash_val:
-            print(item_name + ' has not been changed')
+            print('No change in ' + item_name)
             return
 
-        print(item_name + ' has changed: Applying update')
+        if self._dry_run:
+            print('Update required for ' + item_name)
+            return
 
+        print('Applying update ' + item_name + ' (item has changed)')
         self._oc.apply(str_repr)
         self._oc.annotate(item_name, 'yml-hash', hash_val)
 

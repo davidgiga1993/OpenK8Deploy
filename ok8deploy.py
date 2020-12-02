@@ -4,7 +4,7 @@ import argparse
 import os
 
 from config.Config import ProjectConfig
-from deploy.AppDeploy import AppDeployRunner, AppDeployment
+from deploy.AppDeploy import AppDeployment
 
 
 def reload_config(args):
@@ -25,18 +25,30 @@ def reload_config(args):
     print('Done')
 
 
+def plan_app(args):
+    args.out_file = None
+    args.dry_run = True
+    deploy_app(args)
+
+
+def plan_all(args):
+    args.out_file = None
+    args.dry_run = True
+    deploy_all(args)
+
+
 def deploy_app(args):
     root_config = ProjectConfig.load(args.config_dir)
     app_config = root_config.load_app_config(args.name[0])
 
-    deployment = AppDeployment(root_config, app_config, dry_run=args.dry_run)
+    deployment = AppDeployment(root_config, app_config, out_file=args.out_file, dry_run=args.dry_run)
     deployment.deploy()
     print('Done')
 
 
 def deploy_all(args):
     base_dir = args.config_dir
-    root_config = ProjectConfig.load(args.config_dir)
+    root_config = ProjectConfig.load(base_dir)
     for dir_item in os.listdir(base_dir):
         path = os.path.join(base_dir, dir_item)
         if not os.path.isdir(path):
@@ -52,7 +64,7 @@ def deploy_all(args):
             # Silently skip
             continue
 
-        AppDeployment(root_config, app_config).deploy()
+        AppDeployment(root_config, app_config, dry_run=args.dry_run).deploy()
     print('Done')
 
 
@@ -66,8 +78,16 @@ def main():
     reload_parser.add_argument('name', help='Name of the app which should be reloaded (folder name)', nargs=1)
     reload_parser.set_defaults(func=reload_config)
 
+    plan_parser = subparsers.add_parser('plan', help='Verifies what changes have to be applied for a single app')
+    plan_parser.add_argument('name', help='Name of the app which should be checked (folder name)', nargs=1)
+    plan_parser.set_defaults(func=plan_app)
+
+    plan_all_parser = subparsers.add_parser('plan-all',
+                                            help='Verifies what changes have to be applied for a single app')
+    plan_all_parser.set_defaults(func=plan_all)
+
     deploy_parser = subparsers.add_parser('deploy', help='Deploys the configuration of an application')
-    deploy_parser.add_argument('--dry-run', dest='dry_run',
+    deploy_parser.add_argument('--out-file', dest='out_file',
                                help='Writes all objects into a yml file instead of deploying them. '
                                     'This does not communicate with openshift in any way')
     deploy_parser.add_argument('name', help='Name of the app which should be deployed (folder name)', nargs=1)
