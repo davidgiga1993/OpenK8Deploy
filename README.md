@@ -131,7 +131,7 @@ The following variables are available anywhere inside the yml files by default
 | Key | Value |
 | --- | --- | 
 | `DC_NAME` | Name of the deployment-config in the `_index.yml` |
-
+| `OC_PROJECT` | Name of the openshift project in `_root.yml` |
 
 ### Templates
 You can use templates to reuse and generate yml files for openshift.

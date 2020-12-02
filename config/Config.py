@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
+from typing import Optional, Dict
 
 from config.AppConfig import AppConfig
 from config.BaseConfig import BaseConfig
@@ -57,12 +57,13 @@ class ProjectConfig(BaseConfig):
         self._oc = oc
         return oc
 
-    def get_oc_project_name(self) -> str:
+    def get_oc_project_name(self) -> Optional[str]:
         """
         Returns the name of the openshift project
-        :return:
+
+        :return: Name or null for libraries
         """
-        return self.data['project']
+        return self.data.get('project')
 
     def get_template_processor(self) -> YmlTemplateProcessor:
         root_processor = super().get_template_processor()
@@ -70,6 +71,19 @@ class ProjectConfig(BaseConfig):
             processor = self._library.get_template_processor()
             root_processor.parent(processor)
         return root_processor
+
+    def get_replacements(self) -> Dict[str, str]:
+        """
+        Returns all variables which are available for the yml files
+        :return: Key, value map
+        """
+        items = super().get_replacements()
+        name = self.get_oc_project_name()
+        if name is not None:
+            items.update({
+                'OC_PROJECT': name
+            })
+        return items
 
     def load_app_config(self, name: str) -> AppConfig:
         folder_path = os.path.join(self._config_root, name)

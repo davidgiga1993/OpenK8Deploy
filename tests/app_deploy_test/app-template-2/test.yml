@@ -6,3 +6,5 @@ metadata:
   base: "${BASE}"
   DC_NAME: "${DC_NAME}"
   GLOBAL_TEST: ${globalVar}
+  REMAPPED: ${REMAPPED}
+  REMAPPED2: ${REMAPPED2}

@@ -34,6 +34,20 @@ class YmlTemplateProcessor:
         :raise MissingParam: Gets raised if at least one parameter is not defined
         """
         replacements = self._get_replacements()
+        # Replace any variables
+        depth = 0
+        found_var = True
+        while depth < 10 and found_var:  # Lazily assume there are only 10 levels of chained reference
+            found_var = False
+            for key, value in replacements.items():
+                for variable_name in self.VAR_PATTERN.findall(value):
+                    new_value = replacements.get(variable_name)
+                    if new_value is None:
+                        print('Warn: Missing referenced variable: ' + variable_name)
+                        continue
+                    replacements[key] = value.replace('${' + variable_name + '}', new_value)
+                    found_var = True
+
         self._walk_dict(replacements, data)
 
         # Check if any of the missing vars are declared as "params"
@@ -45,7 +59,9 @@ class YmlTemplateProcessor:
                 if missing not in params:
                     continue
                 missing_params.append(missing)
-            raise MissingParam('The following params are not defined: ' + str(missing_params))
+            if len(missing_params) > 0:
+                raise MissingParam('The following params are not defined: ' + str(missing_params))
+            print('Warn: The following vars are not defined: ' + str(self._missing_vars))
 
     def _get_params(self) -> Set[str]:
         """
@@ -99,10 +115,9 @@ class YmlTemplateProcessor:
     def _replace(self, item: str, replacements):
         for variable, value in replacements.items():
             item = item.replace('${' + variable + '}', str(value))
+
         # Search for any missing variables
-        matcher = self.VAR_PATTERN.findall(item)
-        for missing in matcher:
-            self._missing_vars.append(missing)
+        self._missing_vars.extend(self.VAR_PATTERN.findall(item))
         return item
 
     def parent(self, template_processor: YmlTemplateProcessor):

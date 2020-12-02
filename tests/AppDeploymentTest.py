@@ -41,6 +41,8 @@ class AppDeploymentTest(TestCase):
 
         # We should have two instances
         self.assertEqual(2, len(docs))
+        self.assertEqual('hello', docs[0]['metadata']['REMAPPED'])
+        self.assertEqual('hello', docs[1]['metadata']['REMAPPED'])
 
     def test_params(self):
         prj_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
@@ -71,6 +73,8 @@ class AppDeploymentTest(TestCase):
         with open(self._tmp_file) as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
         self.assertEqual('ABC', data['metadata']['name'])
+        self.assertEqual('ABC-1', data['metadata']['REMAPPED'])
+        self.assertEqual('ABC', data['metadata']['REMAPPED2'])
         self.assertEqual('DEF', data['metadata']['name2'])
         self.assertEqual('3', data['metadata']['base'])
         self.assertEqual('global', data['metadata']['GLOBAL_TEST'])
