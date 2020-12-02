@@ -33,18 +33,18 @@ python deploy.py reload prometheus
 
 ## Configuration
 In OK8Deploy you define apps, each app can contain multiple yml files.
-Additionally, there is a project configuration which describes the OC project.
+Additionally, there is a project configuration which describes the openshift project.
 
 All yml files will be pre-processed before they will be imported.
-This includes replacing any known `${KEY}` variables with their associate values.
+This includes replacing any known `${KEY}` variables with their associate values and merging referenced templates.
 
 ### Config structure
 ```
 configs
 |- _root.yml <- Project config
-|- my-app
+|- my-app <- App
     |- _index.yml <- App config
-    |- dc.yml
+    |- dc.yml <- Openshift yml file(s)
     |- secrets.yml
 ```
 
@@ -53,8 +53,11 @@ Here is a sample `_root.yml` file
 ```yml
 project: 'my-oc-project'
 ```
+Any deployments made will happen in this project.
+
 ### App config
-A single app is represented by a folder containing an `_index.yml` file as well as any additional openshift yml files.
+An app is represented by a folder containing an `_index.yml` file and any additional openshift yml files.
+The following shows all available parameters. Only the first 3 are required.
 ```yml
 # The type defines how the app will be used.
 # Can be "app" (default) or "template"
@@ -74,7 +77,6 @@ applyTemplates: []
 # Templates which should be applied AFTER processing the other templates and base yml files
 postApplyTemplates: []
 
-# OPTIONAL
 # Action which should be executed if a configmap has been changed
 on-config-change:
 # Available options: 
@@ -88,9 +90,14 @@ on-config-change:
         - "-c"
         - "kill -HUP $(ps a | grep prometheus | grep -v grep | awk '{print $1}')"
 
-# Additional variables available in the template file
+# Additional variables which are used for replacements
 vars:
   NSQ_NAME: 'nsq-core'
+
+# Required parameters which must be passed to this app.
+# This can be done via the CLI or if this app is a template the referring app can define it in "vars" 
+params:
+  - PASSWORD
 
 # File based configmaps
 configmaps:
@@ -123,10 +130,10 @@ The following variables are available anywhere inside the yml files by default
 
 
 ### Templates
-You can use templates to generate yml files for openshift.
+You can use templates to reuse and generate yml files for openshift.
 To do so you create a new app with the `type` field set to `template`.
-Other apps can now refer to this template via the `templates` field. The content of a template will then be
-processed using the app variables and deployed in addition to any other yml files inside the app directory.
+Other apps can now refer to this template via the `applyTemplates` or `postApplyTemplates` field. 
+Templates can refer to other templates (recursively). Any vars defined are passed to the next template. 
 
 Example:
 ```
@@ -135,7 +142,7 @@ Example:
     |- dc.yml
 
 |- my-app
-    |- _index.yml
+    |- _index.yml <-- Referes to "some-template"
     |- others.yml
 ```
 
@@ -221,10 +228,28 @@ spec:
             image: "nsqio/nsq"
 ```
 
+#### Loops
+Loops allow you to apply the same template with different parameters.
+This is useful when deploying microservices which all have the same openshift config.
+
+```yml
+# _index.yml
+enabled: true
+applyTemplates: [ api-template ]
+forEach: 
+    # DC_NAME is required for each instance that should be created
+  - DC_NAME: entity-compare-api
+    # You can define other vars as well
+    PORT: 8080
+
+  - DC_NAME: favorite-api
+    PORT: 8081
+```
+
 ## Change tracking
 Changes are detected by storing a md5 sum in the label of the object.
 If this hash has changed the whole object will be applied.
-If no tabel has been found in openshift the object is assumed to be equal, and the label is added.
+If no label has been found in openshift the object is assumed to be equal, and the label is added.
 
 ## Examples
 All examples can be found in the `examples` folder.

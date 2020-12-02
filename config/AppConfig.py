@@ -6,6 +6,7 @@ from config.ConfigMap import ConfigMap
 from config.DeploymentActionConfig import DeploymentActionConfig
 from config.YmlConfig import YmlConfig
 from utils.DictUtils import DictUtils
+from utils.Errors import MissingVar
 
 
 class AppConfig(YmlConfig):
@@ -13,7 +14,7 @@ class AppConfig(YmlConfig):
     Contains the configuration for the deployment of a single app
     """
 
-    def __init__(self, config_root: str, path: str, external_vars: Dict[str, str] = None):
+    def __init__(self, config_root: str, path: Optional[str], external_vars: Dict[str, str] = None):
         super().__init__(path)
         self._config_root = config_root
         self._external_vars = {}  # type: Dict[str, str]
@@ -47,6 +48,31 @@ class AppConfig(YmlConfig):
         :return: Folder path
         """
         return self._config_root
+
+    def get_for_each(self) -> List[AppConfig]:
+        """
+        Returns all instances of this app which should be created.
+        :return: Instances, 1 by default
+        :raise MissingVar: Gets raised if the data inside forEach is not complete
+        """
+        instances = []
+        for instance_vars in self.data.get('forEach', []):
+            assert isinstance(instance_vars, dict)
+            dc_name = instance_vars.get('DC_NAME')
+            if dc_name is None:
+                raise MissingVar('DC_NAME not defined in forEach for app ' + self.get_dc_name())
+
+            config = AppConfig(self._config_root, None, instance_vars)
+            # Inherit all parameters
+            config.data.update(self.data)
+            # Update the DC_NAME
+            DictUtils.set(config.data, 'dc.name', dc_name)
+            instances.append(config)
+
+        if len(instances) == 0:
+            # No forEach defined, just create one instance
+            instances.append(self)
+        return instances
 
     def get_pre_template_refs(self) -> List[str]:
         """

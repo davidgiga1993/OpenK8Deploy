@@ -4,11 +4,11 @@ from unittest import TestCase
 import yaml
 
 from config.Config import RootConfig
-from deploy.AppDeploy import AppDeployRunner
+from deploy.AppDeploy import AppDeployment
 from utils.Errors import MissingParam
 
 
-class AppDeployTest(TestCase):
+class AppDeploymentTest(TestCase):
 
     def setUp(self) -> None:
         self._base_path = os.path.dirname(__file__)
@@ -18,11 +18,25 @@ class AppDeployTest(TestCase):
         if os.path.isfile(self._tmp_file):
             os.remove(self._tmp_file)
 
+    def test_for_each(self):
+        root_config = RootConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
+        app_config = root_config.load_app_config('app-for-each')
+        runner = AppDeployment(root_config, app_config, dry_run=self._tmp_file)
+        runner.deploy()
+
+        docs = []
+        with open(self._tmp_file) as f:
+            data = yaml.load_all(f, Loader=yaml.FullLoader)
+            for doc in data:
+                docs.append(doc)
+
+        # We should have two instances
+        self.assertEqual(2, len(docs))
+
     def test_params(self):
         root_config = RootConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
         app_config = root_config.load_app_config('app-params')
-        runner = AppDeployRunner(root_config, app_config)
-        runner.write_file(self._tmp_file)
+        runner = AppDeployment(root_config, app_config, dry_run=self._tmp_file)
         try:
             runner.deploy()
             self.fail('No exception raised for missing param')
@@ -42,8 +56,7 @@ class AppDeployTest(TestCase):
     def test_inherit_vars(self):
         root_config = RootConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
         app_config = root_config.load_app_config('app')
-        runner = AppDeployRunner(root_config, app_config)
-        runner.write_file(self._tmp_file)
+        runner = AppDeployment(root_config, app_config, dry_run=self._tmp_file)
         runner.deploy()
 
         with open(self._tmp_file) as f:

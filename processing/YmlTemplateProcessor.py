@@ -89,7 +89,7 @@ class YmlTemplateProcessor:
 
     def _replace(self, item: str, replacements):
         for variable, value in replacements.items():
-            item = item.replace('${' + variable + '}', value)
+            item = item.replace('${' + variable + '}', str(value))
         # Search for any missing variables
         matcher = self.VAR_PATTERN.findall(item)
         for missing in matcher:
