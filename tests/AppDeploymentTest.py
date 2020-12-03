@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import yaml
 
-from config.Config import ProjectConfig
+from config.Config import ProjectConfig, RunMode
 from deploy.AppDeploy import AppDeployment
 from utils.Errors import MissingParam
 
@@ -13,6 +13,9 @@ class AppDeploymentTest(TestCase):
     def setUp(self) -> None:
         self._base_path = os.path.dirname(__file__)
         self._tmp_file = 'out.yml'
+        self._mode = RunMode()
+        self._mode.dry_run = True
+        self._mode.out_file = self._tmp_file
 
     def tearDown(self) -> None:
         if os.path.isfile(self._tmp_file):
@@ -21,7 +24,7 @@ class AppDeploymentTest(TestCase):
     def test_library(self):
         prj_config = ProjectConfig.load(os.path.join(self._base_path, 'lib-usage'))
         app_config = prj_config.load_app_config('some-app')
-        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
+        runner = AppDeployment(prj_config, app_config, self._mode)
         runner.deploy()
         with open(self._tmp_file) as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
@@ -30,7 +33,7 @@ class AppDeploymentTest(TestCase):
     def test_var_loader(self):
         prj_config = ProjectConfig.load(os.path.join(self._base_path, 'lib-usage'))
         app_config = prj_config.load_app_config('var-loader-app')
-        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
+        runner = AppDeployment(prj_config, app_config, self._mode)
         runner.deploy()
         with open(self._tmp_file) as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
@@ -43,7 +46,7 @@ KEY STUFF
     def test_for_each(self):
         prj_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
         app_config = prj_config.load_app_config('app-for-each')
-        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
+        runner = AppDeployment(prj_config, app_config, self._mode)
         runner.deploy()
 
         docs = []
@@ -60,7 +63,7 @@ KEY STUFF
     def test_params(self):
         prj_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
         app_config = prj_config.load_app_config('app-params')
-        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
+        runner = AppDeployment(prj_config, app_config, self._mode)
         try:
             runner.deploy()
             self.fail('No exception raised for missing param')
@@ -80,7 +83,7 @@ KEY STUFF
     def test_inherit_vars(self):
         prj_config = ProjectConfig.load(os.path.join(self._base_path, 'app_deploy_test'))
         app_config = prj_config.load_app_config('app')
-        runner = AppDeployment(prj_config, app_config, dry_run=self._tmp_file)
+        runner = AppDeployment(prj_config, app_config, self._mode)
         runner.deploy()
 
         with open(self._tmp_file) as f:

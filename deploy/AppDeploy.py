@@ -1,87 +1,14 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, List
+from typing import List
 
 import yaml
+
+from config.Config import ProjectConfig, AppConfig, RunMode
+from deploy.DeploymentBundle import DeploymentBundle
 from deploy.OcObjectDeployer import OcObjectDeployer
-
-from config.Config import ProjectConfig, AppConfig
-from processing.OcObjectMerge import OcObjectMerge
 from processing.YmlTemplateProcessor import YmlTemplateProcessor
-
-
-class DeploymentBundle:
-    """
-    Holds all objects of a single deployment
-    """
-
-    def __init__(self):
-        self.objects = []  # All objects which should be deployed
-
-    def add_object(self, data: dict, template_processor: YmlTemplateProcessor):
-        """
-        Adds a new object which should be deployed
-        :param data: Object
-        :param template_processor: Template processor which should be used
-        """
-        item_kind = data.get('kind', '').lower()
-        if item_kind == '':
-            print('Unknown object kind: ' + str(data))
-            return
-        if item_kind == 'Secret'.lower():
-            print('Secrets are ignored')
-            return
-        if item_kind == 'PersistentVolumeClaim'.lower():
-            print("PVCs are ignored")
-            return
-
-        # Pre-process any variables
-        template_processor.process(data)
-
-        merger = OcObjectMerge()
-        # Check if the new data can be merged into any existing objects
-        for item in self.objects:
-            if merger.merge(item, data):
-                # Data has been merged
-                return
-
-        self.objects.append(data)
-
-    def deploy(self, deploy_runner: OcObjectDeployer):
-        """
-        Deploys all object
-        :param deploy_runner: Deployment runner which should be used
-        """
-
-        # First sort the objects
-        # we want deploymentconfigs to be the last items since a config change might
-        # have an impact
-        def sorting(x):
-            if x['kind'].lower() == 'DeploymentConfig'.lower():
-                return 1
-            return 0
-
-        self.objects.sort(key=sorting)
-        for item in self.objects:
-            deploy_runner.deploy_object(item)
-
-    def dump_objects(self, path: str):
-        """
-        Very crude method for dumping the objects to a yml file.
-        If the file does already exist the content will be appended
-        :param path: Path to a file
-        """
-        all_objects = []
-        if os.path.isfile(path):
-            with open(path) as f:
-                data = yaml.load_all(f, Loader=yaml.FullLoader)
-                for doc in data:
-                    all_objects.append(doc)
-
-        all_objects.extend(self.objects)
-        with open(path, 'w') as file:
-            yaml.dump_all(all_objects, file, default_flow_style=False, sort_keys=True)
 
 
 class AppDeployment:
@@ -89,23 +16,20 @@ class AppDeployment:
     Deploys a single application
     """
 
-    def __init__(self, root_config: ProjectConfig, app_config: AppConfig,
-                 out_file: Optional[str] = None,
-                 dry_run=False):
+    def __init__(self, root_config: ProjectConfig, app_config: AppConfig, mode: RunMode):
         self._root_config = root_config
         self._app_config = app_config
-        self._out_file = out_file
-        self._dry_run = dry_run
+        self._mode = mode
 
     def deploy(self):
         """
         Deploys all instances of the app
         """
-        if self._out_file is not None:
-            if os.path.isfile(self._out_file):
-                os.remove(self._out_file)
+        if self._mode.out_file is not None:
+            if os.path.isfile(self._mode.out_file):
+                os.remove(self._mode.out_file)
 
-        factory = AppDeployRunnerFactory(self._root_config, out_file=self._out_file, dry_run=self._dry_run)
+        factory = AppDeployRunnerFactory(self._root_config, self._mode)
         runners = factory.create(self._app_config)
         for runner in runners:
             runner.deploy()
@@ -116,10 +40,9 @@ class AppDeployRunnerFactory:
     Creates AppDeployRunner objects
     """
 
-    def __init__(self, root_config: ProjectConfig, out_file: Optional[str] = None, dry_run=False):
+    def __init__(self, root_config: ProjectConfig, mode: RunMode):
         self._root_config = root_config
-        self._dry_run = dry_run
-        self._out_file = out_file
+        self._mode = mode
 
     def create(self, root_app_config: AppConfig) -> List[AppDeployRunner]:
         """
@@ -128,7 +51,7 @@ class AppDeployRunnerFactory:
         """
         runners = []
         for app_config in root_app_config.get_for_each():
-            runner = AppDeployRunner(self._root_config, app_config, out_file=self._out_file, dry_run=self._dry_run)
+            runner = AppDeployRunner(self._root_config, app_config, mode=self._mode)
             runners.append(runner)
         return runners
 
@@ -138,13 +61,11 @@ class AppDeployRunner:
     Executes the deployment of a single app
     """
 
-    def __init__(self, root_config: ProjectConfig, app_config: AppConfig, out_file: Optional[str] = None,
-                 dry_run=False):
+    def __init__(self, root_config: ProjectConfig, app_config: AppConfig, mode: RunMode = RunMode()):
         self._root_config = root_config
         self._app_config = app_config
         self._bundle = DeploymentBundle()
-        self._dry_run = dry_run
-        self._out_file = out_file
+        self._mode = mode
 
     def deploy(self):
         """
@@ -164,12 +85,13 @@ class AppDeployRunner:
         self._deploy_templates(self._app_config.get_post_template_refs(), template_processor)
 
         oc = self._root_config.create_oc()
-        if self._out_file is not None:
-            self._bundle.dump_objects(self._out_file)
+        if self._mode.out_file is not None:
+            self._bundle.dump_objects(self._mode.out_file)
+        if self._mode.dry_run:
+            return
 
-        oc.project(self._root_config.get_oc_project_name())
         print('Checking ' + self._app_config.get_dc_name())
-        object_deployer = OcObjectDeployer(self._root_config, oc, self._app_config, dry_run=self._dry_run)
+        object_deployer = OcObjectDeployer(self._root_config, oc, self._app_config, mode=self._mode)
         self._bundle.deploy(object_deployer)
 
     def _deploy_templates(self, template_names: List[str], template_processor: YmlTemplateProcessor):

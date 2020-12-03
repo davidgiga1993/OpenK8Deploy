@@ -10,6 +10,24 @@ from processing.YmlTemplateProcessor import YmlTemplateProcessor
 from utils.Errors import ConfigError
 
 
+class RunMode:
+    def __init__(self):
+        self.out_file = None  # type: Optional[str]
+        """
+        Yml output file
+        """
+
+        self.dry_run = False
+        """
+        True if no OC should be called
+        """
+
+        self.plan = False
+        """
+        True if changes should be previewed
+        """
+
+
 class ProjectConfig(BaseConfig):
     """
     Project configuration
