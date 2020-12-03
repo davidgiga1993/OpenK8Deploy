@@ -90,6 +90,8 @@ def main():
     deploy_parser.add_argument('--out-file', dest='out_file',
                                help='Writes all objects into a yml file instead of deploying them. '
                                     'This does not communicate with openshift in any way')
+    deploy_parser.add_argument('--dry-run', dest='dry_run', help='Does not interact with openshift',
+                               action='store_true')
     deploy_parser.add_argument('name', help='Name of the app which should be deployed (folder name)', nargs=1)
     deploy_parser.set_defaults(func=deploy_app)
 
